@@ -8,15 +8,17 @@ const ValidInput = struct {
     prompt: []const u8,
 };
 
-fn install() void {
-    print("enforcer enabled", .{});
+fn install() ValidInput {
+    print("enforcer enabled\n", .{});
+    return .{ .prompt = "on" };
 }
 
-fn uninstall() void {
-    print("enforcer disabled", .{});
+fn uninstall() ValidInput {
+    print("enforcer disabled\n", .{});
+    return .{ .prompt = "off" };
 }
 
-pub fn main(init: std.process.Init) !void {
+pub fn main(init: std.process.Init) !u8 {
 
     // This is appropriate for anything that lives as long as the process.
     var arena_buf: [max_input_bytes]u8 = undefined;
@@ -28,12 +30,16 @@ pub fn main(init: std.process.Init) !void {
     // Accessing command line arguments:
     const args = try init.minimal.args.toSlice(arena_allocator);
     for (args) |arg| {
-        std.log.info("arg: {s}", .{arg});
+        // std.log.info("arg: {s}", .{arg});
         if (std.mem.eql(u8, "on", arg)) {
-            return install();
+            const input = install();
+            _ = input;
+            return 0;
         }
         if (std.mem.eql(u8, "off", arg)) {
-            return uninstall();
+            const input = uninstall();
+            _ = input;
+            return 0;
         }
     }
 
@@ -48,6 +54,7 @@ pub fn main(init: std.process.Init) !void {
     const stdout_writer = &stdout_file_writer.interface;
 
     try stdout_writer.flush(); // Don't forget to flush!
+    return 0;
 }
 
 test "simple test" {
