@@ -1,5 +1,14 @@
 const std = @import("std");
 const Io = std.Io;
+const print = std.debug.print;
+
+const max_input_bytes: u32 = 4000;
+
+const ValidInput = struct {
+    prompt: []const u8,
+};
+
+fn parse_input() void {}
 
 pub fn main(init: std.process.Init) !void {
     // Prints to stderr, unbuffered, ignoring potential errors.
@@ -12,6 +21,9 @@ pub fn main(init: std.process.Init) !void {
     const args = try init.minimal.args.toSlice(arena);
     for (args) |arg| {
         std.log.info("arg: {s}", .{arg});
+        if (std.mem.eql(u8, "on", arg)) {
+            print("do stuff", .{});
+        }
     }
 
     // In order to do I/O operations need an `Io` instance.
