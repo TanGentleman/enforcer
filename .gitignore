@@ -3,3 +3,4 @@ zig-pkg/
 zig-out/
 .env
 .venv
+.DS_Store
