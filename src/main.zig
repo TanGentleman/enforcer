@@ -8,21 +8,32 @@ const ValidInput = struct {
     prompt: []const u8,
 };
 
-fn parse_input() void {}
+fn install() void {
+    print("enforcer enabled", .{});
+}
+
+fn uninstall() void {
+    print("enforcer disabled", .{});
+}
 
 pub fn main(init: std.process.Init) !void {
-    // Prints to stderr, unbuffered, ignoring potential errors.
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
 
     // This is appropriate for anything that lives as long as the process.
-    const arena: std.mem.Allocator = init.arena.allocator();
+    var arena_buf: [max_input_bytes]u8 = undefined;
+    var fixed_allocator = std.heap.FixedBufferAllocator.init(&arena_buf);
+    var arena = std.heap.ArenaAllocator.init(fixed_allocator.allocator());
+    defer arena.deinit();
+    const arena_allocator = arena.allocator();
 
     // Accessing command line arguments:
-    const args = try init.minimal.args.toSlice(arena);
+    const args = try init.minimal.args.toSlice(arena_allocator);
     for (args) |arg| {
         std.log.info("arg: {s}", .{arg});
         if (std.mem.eql(u8, "on", arg)) {
-            print("do stuff", .{});
+            return install();
+        }
+        if (std.mem.eql(u8, "off", arg)) {
+            return uninstall();
         }
     }
 
