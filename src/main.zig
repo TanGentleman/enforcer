@@ -2,6 +2,7 @@ const std = @import("std");
 const Io = std.Io;
 const enforcer = @import("enforcer");
 const print = std.debug.print;
+const Settings = @import("enforcer").hookSettings;
 
 // just `enforcer on` requires <120 bytes
 const max_input_bytes: u32 = 4000;
@@ -12,16 +13,17 @@ const ValidInput = struct {
 
 // handler for `enforcer on`
 fn install() ValidInput {
-    print("enforcer enabled\n", .{});
-    const settings: enforcer.hookSettings = .{ .beforePromptSubmit = true };
-    const res = try enforcer.setHooks(settings);
-    print("result: {}\n", .{res});
+    _ = try enforcer.setHooks(.{
+        .UserPromptSubmit = true,
+    });
     return .{ .prompt = "on" };
 }
 
 // `handler for `enforcer off`
 fn uninstall() ValidInput {
-    print("enforcer disabled\n", .{});
+    _ = try enforcer.setHooks(.{
+        .UserPromptSubmit = false,
+    });
     return .{ .prompt = "off" };
 }
 
