@@ -1,10 +1,9 @@
 const std = @import("std");
 const Io = std.Io;
-const enforcer = @import("enforcer");
 const print = std.debug.print;
+const enforcer = @import("enforcer");
 const Settings = @import("enforcer").hookSettings;
 
-// just `enforcer on` requires <120 bytes
 const max_input_bytes: u32 = 4000;
 
 const ValidInput = struct {
@@ -12,19 +11,25 @@ const ValidInput = struct {
 };
 
 // handler for `enforcer on`
-fn install() ValidInput {
-    _ = try enforcer.setHooks(.{
+fn install() bool {
+    _ = enforcer.setHooks(.{
         .UserPromptSubmit = true,
-    });
-    return .{ .prompt = "on" };
+    }) catch |err| {
+        print("error: {s}\n", .{@errorName(err)});
+        return false;
+    };
+    return true;
 }
 
 // `handler for `enforcer off`
-fn uninstall() ValidInput {
-    _ = try enforcer.setHooks(.{
+fn uninstall() bool {
+    _ = enforcer.setHooks(.{
         .UserPromptSubmit = false,
-    });
-    return .{ .prompt = "off" };
+    }) catch |err| {
+        print("error: {s}\n", .{@errorName(err)});
+        return false;
+    };
+    return true;
 }
 
 fn parseInput(input_string: []const u8) ValidInput {
@@ -63,13 +68,13 @@ pub fn main(init: std.process.Init) !u8 {
             continue;
         }
         if (std.mem.eql(u8, "on", arg)) {
-            const input = install();
-            _ = input;
+            const success = install();
+            print("success: {}\n", .{success});
             return 0;
         }
         if (std.mem.eql(u8, "off", arg)) {
-            const input = uninstall();
-            _ = input;
+            const success = uninstall();
+            print("success: {}\n", .{success});
             return 0;
         }
         if (std.mem.eql(u8, "--input", arg)) {
