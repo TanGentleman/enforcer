@@ -1,5 +1,6 @@
 const std = @import("std");
 const Io = std.Io;
+const enforcer = @import("enforcer");
 const print = std.debug.print;
 
 // just `enforcer on` requires <120 bytes
@@ -12,6 +13,9 @@ const ValidInput = struct {
 // handler for `enforcer on`
 fn install() ValidInput {
     print("enforcer enabled\n", .{});
+    const settings: enforcer.hookSettings = .{ .beforePromptSubmit = true };
+    const res = try enforcer.setHooks(settings);
+    print("result: {}\n", .{res});
     return .{ .prompt = "on" };
 }
 
