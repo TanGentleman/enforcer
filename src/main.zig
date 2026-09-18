@@ -12,7 +12,7 @@ const ValidInput = struct {
 
 // handler for `enforcer on`
 fn install() bool {
-    _ = enforcer.setHooks(.{
+    enforcer.setHooks(.{
         .UserPromptSubmit = true,
     }) catch |err| {
         print("error: {s}\n", .{@errorName(err)});
@@ -23,7 +23,7 @@ fn install() bool {
 
 // `handler for `enforcer off`
 fn uninstall() bool {
-    _ = enforcer.setHooks(.{
+    enforcer.setHooks(.{
         .UserPromptSubmit = false,
     }) catch |err| {
         print("error: {s}\n", .{@errorName(err)});
