@@ -44,7 +44,25 @@ pub fn main(init: std.process.Init) !u8 {
     var arena = std.heap.ArenaAllocator.init(fixed_allocator.allocator());
     defer arena.deinit();
     const arena_allocator = arena.allocator();
+    const io = init.io;
 
+    // validate config
+    const home_dir = init.environ_map.get("HOME").?;
+    //std.log.info("Home: {s}", .{home_dir});
+    const config_path = try std.fs.path.join(arena_allocator, &.{
+        home_dir,
+        ".claude",
+        "settings.json",
+    });
+    const cwd = Io.Dir.cwd();
+    cwd.access(io, config_path, .{}) catch |err| switch (err) {
+        error.FileNotFound => return error.ConfigMissing,
+        else => {
+            print("error: {s}\n", .{@errorName(err)});
+            return err;
+        },
+    };
+    std.log.info("config: {s}", .{config_path});
     // Accessing command line arguments:
     const args = init.minimal.args.toSlice(arena_allocator) catch |err| {
         switch (err) {
@@ -91,17 +109,5 @@ pub fn main(init: std.process.Init) !u8 {
         _ = input;
         return 0;
     }
-
-    // In order to do I/O operations need an `Io` instance.
-    const io = init.io;
-
-    // Stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_file_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
-    const stdout_writer = &stdout_file_writer.interface;
-
-    try stdout_writer.flush(); // Don't forget to flush!
-    return 0;
+    return 1;
 }
