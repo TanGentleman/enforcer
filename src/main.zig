@@ -11,8 +11,8 @@ const ValidInput = struct {
 };
 
 // handler for `enforcer on`
-fn install(config_path: []const u8) bool {
-    enforcer.setHooks(.{
+fn install(allocator: std.mem.Allocator, io: std.Io, config_path: []const u8) bool {
+    enforcer.setHooks(allocator, io, .{
         .UserPromptSubmit = true,
         .config_path = config_path,
     }) catch |err| {
@@ -23,8 +23,8 @@ fn install(config_path: []const u8) bool {
 }
 
 // `handler for `enforcer off`
-fn uninstall(config_path: []const u8) bool {
-    enforcer.setHooks(.{
+fn uninstall(allocator: std.mem.Allocator, io: std.Io, config_path: []const u8) bool {
+    enforcer.setHooks(allocator, io, .{
         .UserPromptSubmit = false,
         .config_path = config_path,
     }) catch |err| {
@@ -89,12 +89,12 @@ pub fn main(init: std.process.Init) !u8 {
             continue;
         }
         if (std.mem.eql(u8, "on", arg)) {
-            const success = install(config_path);
+            const success = install(arena_allocator, io, config_path);
             print("success: {}\n", .{success});
             return 0;
         }
         if (std.mem.eql(u8, "off", arg)) {
-            const success = uninstall(config_path);
+            const success = uninstall(arena_allocator, io, config_path);
             print("success: {}\n", .{success});
             return 0;
         }
