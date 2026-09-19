@@ -11,9 +11,10 @@ const ValidInput = struct {
 };
 
 // handler for `enforcer on`
-fn install() bool {
+fn install(config_path: []const u8) bool {
     enforcer.setHooks(.{
         .UserPromptSubmit = true,
+        .config_path = config_path,
     }) catch |err| {
         print("error: {s}\n", .{@errorName(err)});
         return false;
@@ -22,9 +23,10 @@ fn install() bool {
 }
 
 // `handler for `enforcer off`
-fn uninstall() bool {
+fn uninstall(config_path: []const u8) bool {
     enforcer.setHooks(.{
         .UserPromptSubmit = false,
+        .config_path = config_path,
     }) catch |err| {
         print("error: {s}\n", .{@errorName(err)});
         return false;
@@ -63,6 +65,7 @@ pub fn main(init: std.process.Init) !u8 {
         },
     };
     std.log.info("config: {s}", .{config_path});
+
     // Accessing command line arguments:
     const args = init.minimal.args.toSlice(arena_allocator) catch |err| {
         switch (err) {
@@ -86,12 +89,12 @@ pub fn main(init: std.process.Init) !u8 {
             continue;
         }
         if (std.mem.eql(u8, "on", arg)) {
-            const success = install();
+            const success = install(config_path);
             print("success: {}\n", .{success});
             return 0;
         }
         if (std.mem.eql(u8, "off", arg)) {
-            const success = uninstall();
+            const success = uninstall(config_path);
             print("success: {}\n", .{success});
             return 0;
         }

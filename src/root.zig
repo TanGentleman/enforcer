@@ -4,6 +4,7 @@ const Io = std.Io;
 
 pub const hookSettings = struct {
     UserPromptSubmit: bool,
+    config_path: []const u8,
 };
 
 pub fn setHooks(settings: hookSettings) !void {
