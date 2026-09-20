@@ -4,13 +4,14 @@ const Io = std.Io;
 
 pub const hookSettings = struct {
     user_prompt_submit: bool,
-    config_path: []const u8,
+    settings_path: []const u8,
 };
 
 pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings) !void {
+    const max_settings_file_bytes = 4 * 1024 * 1024;
     // precondition: ~/.claude/settings.json exists
-    const dir_path = std.fs.path.dirname(settings.config_path) orelse ".";
-    const filename = std.fs.path.basename(settings.config_path);
+    const dir_path = std.fs.path.dirname(settings.settings_path) orelse ".";
+    const filename = std.fs.path.basename(settings.settings_path);
 
     var dir = try Io.Dir.cwd().openDir(io, dir_path, .{ .follow_symlinks = false });
     defer dir.close(io);
