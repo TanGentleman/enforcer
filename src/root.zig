@@ -29,6 +29,17 @@ pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings
     });
     defer lock_file.close(io);
 
+    const stat = try dir.statFile(io, filename, .{ .follow_symlinks = false });
+    switch (stat.kind) {
+        .file => {},
+        .sym_link => return error.SettingsSymlinkUnsupported,
+        else => return error.SettingsFileWacky,
+    }
+
+    if (stat.size > max_settings_file_bytes) {
+        return error.SettingsTooLarge;
+    }
+
     _ = allocator;
     std.debug.print("setting hook to {}\n", .{settings.user_prompt_submit});
     // postcondition: ~/.claude/settings.json sets hooks accordingly (no duplicates)
