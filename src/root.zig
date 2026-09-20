@@ -3,7 +3,7 @@ const std = @import("std");
 const Io = std.Io;
 
 pub const hookSettings = struct {
-    UserPromptSubmit: bool,
+    user_prompt_submit: bool,
     config_path: []const u8,
 };
 
@@ -29,6 +29,6 @@ pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings
     defer lock_file.close(io);
 
     _ = allocator;
-    std.debug.print("setting hook to {}\n", .{settings.UserPromptSubmit});
+    std.debug.print("setting hook to {}\n", .{settings.user_prompt_submit});
     // postcondition: ~/.claude/settings.json sets hooks accordingly (no duplicates)
 }

@@ -13,7 +13,7 @@ const ValidInput = struct {
 // handler for `enforcer on`
 fn install(allocator: std.mem.Allocator, io: std.Io, config_path: []const u8) bool {
     enforcer.setHooks(allocator, io, .{
-        .UserPromptSubmit = true,
+        .user_prompt_submit = true,
         .config_path = config_path,
     }) catch |err| {
         print("error: {s}\n", .{@errorName(err)});
@@ -25,7 +25,7 @@ fn install(allocator: std.mem.Allocator, io: std.Io, config_path: []const u8) bo
 // `handler for `enforcer off`
 fn uninstall(allocator: std.mem.Allocator, io: std.Io, config_path: []const u8) bool {
     enforcer.setHooks(allocator, io, .{
-        .UserPromptSubmit = false,
+        .user_prompt_submit = false,
         .config_path = config_path,
     }) catch |err| {
         print("error: {s}\n", .{@errorName(err)});
