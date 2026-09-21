@@ -4,7 +4,7 @@ const print = std.debug.print;
 const enforcer = @import("enforcer");
 const Settings = @import("enforcer").hookSettings;
 
-const max_input_bytes: u32 = 4000;
+const allocator_max_bytes: u32 = 8 * 1024 * 1024;
 
 const ValidInput = struct {
     prompt: []const u8,
@@ -41,7 +41,7 @@ fn parseInput(input_string: []const u8) ValidInput {
 
 pub fn main(init: std.process.Init) !u8 {
     // This is appropriate for anything that lives as long as the process.
-    var arena_buf: [max_input_bytes]u8 = undefined;
+    var arena_buf: [allocator_max_bytes]u8 = undefined;
     var fixed_allocator = std.heap.FixedBufferAllocator.init(&arena_buf);
     var arena = std.heap.ArenaAllocator.init(fixed_allocator.allocator());
     defer arena.deinit();
@@ -91,12 +91,18 @@ pub fn main(init: std.process.Init) !u8 {
         if (std.mem.eql(u8, "on", arg)) {
             const success = install(arena_allocator, io, settings_path);
             print("success: {}\n", .{success});
-            return 0;
+            switch (success) {
+                true => return 0,
+                false => return 1,
+            }
         }
         if (std.mem.eql(u8, "off", arg)) {
             const success = uninstall(arena_allocator, io, settings_path);
             print("success: {}\n", .{success});
-            return 0;
+            switch (success) {
+                true => return 0,
+                false => return 1,
+            }
         }
         if (std.mem.eql(u8, "--input", arg)) {
             expecting_input = true;
