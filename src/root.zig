@@ -44,7 +44,8 @@ pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings
         return error.SettingsTooLarge;
     }
 
-    _ = allocator;
+    const file_contents = try dir.readFileAlloc(io, settings.settings_path, allocator, .limited(max_settings_file_bytes));
+    std.log.debug("Full file:\n---\n{s}\n---\n", .{file_contents[0..]});
     std.debug.print("setting hook to {}\n", .{settings.user_prompt_submit});
     // postcondition: ~/.claude/settings.json sets hooks accordingly (no duplicates)
 }
