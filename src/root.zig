@@ -7,6 +7,11 @@ pub const hookSettings = struct {
     settings_path: []const u8,
 };
 
+fn mutateHooks(hooks_struct: anytype) bool {
+    _ = hooks_struct;
+    return true;
+}
+
 pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings) !void {
     const max_settings_file_bytes = 4 * 1024 * 1024;
     // precondition: ~/.claude/settings.json exists
@@ -15,7 +20,6 @@ pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings
 
     var dir = try Io.Dir.cwd().openDir(io, dir_path, .{ .follow_symlinks = false });
     defer dir.close(io);
-    std.log.info("f: {s}", .{filename});
 
     // get lock (rn its posix only)
     var lock_name_buf: [std.fs.max_name_bytes]u8 = undefined;
@@ -44,3 +48,10 @@ pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings
     std.debug.print("setting hook to {}\n", .{settings.user_prompt_submit});
     // postcondition: ~/.claude/settings.json sets hooks accordingly (no duplicates)
 }
+
+// NOTE: Test these cases for mutateHooks (no file io):
+// 1. A settings file without a hooks field adds them in.
+// 2. If enforcer hook already present, return false.
+// 3. Removal deletes duplicates.
+// 4. Removal preserves unrelated hooks.
+// 5. Nonexistent hook removal returns false.
