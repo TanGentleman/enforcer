@@ -52,8 +52,8 @@ pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings
     );
     defer allocator.free(file_contents);
     std.log.debug("Full file:\n---\n{s}---", .{file_contents[0..]});
-    var parsed = try std.json.parseFromSlice(
-        u8,
+    var parsed = try std.json.parseFromSliceLeaky(
+        std.json.Value,
         allocator,
         file_contents,
         .{
@@ -61,7 +61,13 @@ pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings
             .parse_numbers = false,
         },
     );
-    defer parsed.deinit();
+    // should be ok to not deinit since we're using arena allocator, right?
+    // what's best practice here?
+    // defer parsed.deinit();
+    switch (parsed) {
+        .object => {},
+        else => return error.settingsFileNotJSON,
+    }
     const success = mutateHooks(&parsed);
     std.debug.print("success mutating hooks: {}\n", .{success});
     std.debug.print("setting hook to {}\n", .{settings.user_prompt_submit});
