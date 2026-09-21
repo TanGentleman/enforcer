@@ -4,7 +4,7 @@ const print = std.debug.print;
 const enforcer = @import("enforcer");
 const Settings = @import("enforcer").hookSettings;
 
-const allocator_max_bytes: u32 = 8 * 1024 * 1024;
+const allocator_max_bytes: u32 = 4 * 1024 * 1024;
 
 const ValidInput = struct {
     prompt: []const u8,

@@ -12,8 +12,9 @@ fn mutateHooks(hooks_struct: anytype) bool {
     return true;
 }
 
+// TODO: move allocator to be backing_allocator, use another arena allocator within this fn scope
 pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings) !void {
-    const max_settings_file_bytes = 4 * 1024 * 1024;
+    const max_settings_file_bytes = 1 * 1024 * 1024;
     // precondition: ~/.claude/settings.json exists
     const dir_path = std.fs.path.dirname(settings.settings_path) orelse ".";
     const filename = std.fs.path.basename(settings.settings_path);
@@ -44,14 +45,14 @@ pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings
         return error.SettingsTooLarge;
     }
 
-    var file_contents = try dir.readFileAlloc(
+    const file_contents = try dir.readFileAlloc(
         io,
-        settings.settings_path,
+        filename,
         allocator,
         .limited(max_settings_file_bytes + 1),
     );
-    defer allocator.free(file_contents);
-    std.log.debug("Full file:\n---\n{s}---", .{file_contents[0..]});
+    // defer allocator.free(file_contents);
+    // std.log.debug("Full file:\n---\n{s}---", .{file_contents[0..]});
     var parsed = try std.json.parseFromSliceLeaky(
         std.json.Value,
         allocator,
