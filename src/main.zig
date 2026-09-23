@@ -104,7 +104,7 @@ pub fn main(init: std.process.Init) !u8 {
                 false => return 1,
             }
         }
-        if (std.mem.eql(u8, "--input", arg)) {
+        if (std.mem.eql(u8, "hook", arg)) {
             expecting_input = true;
             continue;
         }
