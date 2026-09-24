@@ -2,7 +2,7 @@
 const std = @import("std");
 const Io = std.Io;
 
-pub const hookSettings = struct {
+pub const HookSettings = struct {
     user_prompt_submit: bool,
     settings_path: []const u8,
 };
@@ -10,7 +10,7 @@ pub const hookSettings = struct {
 const hook_command = "$HOME/.enforcer/bin/enforcer hook";
 
 // return True if settings_struct is changed
-fn mutateHooks(arena: std.mem.Allocator, settings_struct: *std.json.Value, settings: hookSettings) !bool {
+fn mutateHooks(arena: std.mem.Allocator, settings_struct: *std.json.Value, settings: HookSettings) !bool {
     _ = settings_struct;
     _ = arena;
     _ = settings;
@@ -18,7 +18,7 @@ fn mutateHooks(arena: std.mem.Allocator, settings_struct: *std.json.Value, setti
 }
 
 // TODO: move allocator to be backing_allocator, use another arena allocator within this fn scope
-pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings) !void {
+pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: HookSettings) !void {
     const max_settings_file_bytes = 1 * 1024 * 1024;
     // precondition: ~/.claude/settings.json exists
     const dir_path = std.fs.path.dirname(settings.settings_path) orelse ".";

@@ -2,7 +2,7 @@ const std = @import("std");
 const Io = std.Io;
 const print = std.debug.print;
 const enforcer = @import("enforcer");
-const Settings = @import("enforcer").hookSettings;
+const Settings = @import("enforcer").HookSettings;
 
 const allocator_max_bytes: u32 = 4 * 1024 * 1024;
 var process_buf: [allocator_max_bytes]u8 = undefined;
