@@ -9,18 +9,44 @@ pub const HookSettings = struct {
 
 const hook_command = "$HOME/.enforcer/bin/enforcer hook";
 
+fn isEnforcerHook(v: *std.json.Value) !bool {
+    if (v.* != .object) return error.ValueNotObject;
+    const commandValue = v.object.get("command") orelse return false;
+    if (commandValue != .string) return false;
+    return (std.mem.eql(u8, commandValue.string, hook_command));
+}
 // return True if settings_struct is changed
-fn mutateHooks(arena: std.mem.Allocator, settings_struct: *std.json.Value, settings: HookSettings) !bool {
+fn mutateHooks(allocator: std.mem.Allocator, settings_struct: *std.json.Value, settings: HookSettings) !bool {
     const root = settings_struct;
-    if (root.* != .object) return error.SettingsNotObject;
-    const gop = try root.object.getOrPut(arena, "hooks");
+    if (root.* != .object) return error.SettingsExpectedObject;
+    const gop = try root.object.getOrPut(allocator, "hooks");
     if (!gop.found_existing) gop.value_ptr.* = .{ .object = .empty };
-    if (gop.value_ptr.* != .object) return error.HooksNotObject;
+    if (gop.value_ptr.* != .object) return error.HooksExpectedObject;
 
-    if (settings.user_prompt_submit == false) return error.NotImplementedYet;
+    // ups stands for user_prompt_submit
+    const ups = try gop.value_ptr.object.getOrPut(allocator, "UserPromptSubmit");
+    if (!ups.found_existing) ups.value_ptr.* = .{ .object = .empty };
+    if (ups.value_ptr.* != .object) return error.HooksExpectedObject;
+    const ups_hooks = try ups.value_ptr.object.getOrPut(allocator, "hooks");
+    if (!ups_hooks.found_existing) @panic("idk how to init an array here");
+    if (ups_hooks.value_ptr.* != .array) return error.HooksSubfieldExpectedObject;
+    const arr = ups_hooks.value_ptr.array;
+    var i: usize = arr.items.len;
+    while (i > 0) {
+        i -= 1;
+        if (try isEnforcerHook(&arr.items[i])) @panic("WOOHOO!");
+    }
+
+    if (settings.user_prompt_submit == true) return error.NotImplementedYet;
 
     var entry: std.json.ObjectMap = .empty;
-    try entry.put(arena, "type", .{ .string = "command" });
+    try entry.put(allocator, "type", .{ .string = "command" });
+    try entry.put(allocator, "command", .{ .string = hook_command });
+    var inner = std.json.Array.init(allocator);
+    try inner.append(.{ .object = entry });
+
+    var group: std.json.ObjectMap = .empty;
+    try group.put(allocator, "hooks", .{ .array = inner });
     return true;
 }
 
