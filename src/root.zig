@@ -9,8 +9,7 @@ pub const HookSettings = struct {
 
 const hook_command = "$HOME/.enforcer/bin/enforcer hook";
 
-fn isEnforcerHook(v: *std.json.Value) !bool {
-    if (v.* != .object) return error.ValueNotObject;
+fn isEnforcerHook(v: std.json.Value) bool {
     const commandValue = v.object.get("command") orelse return false;
     if (commandValue != .string) return false;
     return (std.mem.eql(u8, commandValue.string, hook_command));
@@ -26,15 +25,15 @@ fn mutateHooks(allocator: std.mem.Allocator, settings_struct: *std.json.Value, s
     // ups stands for user_prompt_submit
     const ups = try gop.value_ptr.object.getOrPut(allocator, "UserPromptSubmit");
     if (!ups.found_existing) ups.value_ptr.* = .{ .object = .empty };
-    if (ups.value_ptr.* != .object) return error.HooksExpectedObject;
+    if (ups.value_ptr.* != .array) return error.HooksExpectedObject;
     const ups_hooks = try ups.value_ptr.object.getOrPut(allocator, "hooks");
     if (!ups_hooks.found_existing) @panic("idk how to init an array here");
-    if (ups_hooks.value_ptr.* != .array) return error.HooksSubfieldExpectedObject;
+    if (ups_hooks.value_ptr.* != .array) return error.HooksSubfieldExpectedArray;
     const arr = ups_hooks.value_ptr.array;
     var i: usize = arr.items.len;
     while (i > 0) {
         i -= 1;
-        if (try isEnforcerHook(&arr.items[i])) @panic("WOOHOO!");
+        if (isEnforcerHook(arr.items[i])) @panic("WOOHOO!");
     }
 
     if (settings.user_prompt_submit == true) return error.NotImplementedYet;
