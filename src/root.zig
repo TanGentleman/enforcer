@@ -11,9 +11,16 @@ const hook_command = "$HOME/.enforcer/bin/enforcer hook";
 
 // return True if settings_struct is changed
 fn mutateHooks(arena: std.mem.Allocator, settings_struct: *std.json.Value, settings: HookSettings) !bool {
-    _ = settings_struct;
-    _ = arena;
-    _ = settings;
+    const root = settings_struct;
+    if (root.* != .object) return error.SettingsNotObject;
+    const gop = try root.object.getOrPut(arena, "hooks");
+    if (!gop.found_existing) gop.value_ptr.* = .{ .object = .empty };
+    if (gop.value_ptr.* != .object) return error.HooksNotObject;
+
+    if (settings.user_prompt_submit == false) return error.NotImplementedYet;
+
+    var entry: std.json.ObjectMap = .empty;
+    try entry.put(arena, "type", .{ .string = "command" });
     return true;
 }
 
