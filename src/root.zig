@@ -7,8 +7,13 @@ pub const hookSettings = struct {
     settings_path: []const u8,
 };
 
-fn mutateHooks(hooks_struct: anytype) bool {
-    _ = hooks_struct;
+const hook_command = "$HOME/.enforcer/bin/enforcer hook";
+
+// return True if settings_struct is changed
+fn mutateHooks(arena: std.mem.Allocator, settings_struct: *std.json.Value, settings: hookSettings) !bool {
+    _ = settings_struct;
+    _ = arena;
+    _ = settings;
     return true;
 }
 
@@ -69,7 +74,7 @@ pub fn setHooks(allocator: std.mem.Allocator, io: std.Io, settings: hookSettings
         .object => {},
         else => return error.settingsFileNotJSON,
     }
-    const success = mutateHooks(&parsed);
+    const success = try mutateHooks(allocator, &parsed, settings);
     std.debug.print("success mutating hooks: {}\n", .{success});
     std.debug.print("setting hook to {}\n", .{settings.user_prompt_submit});
     // postcondition: ~/.claude/settings.json sets hooks accordingly (no duplicates)
