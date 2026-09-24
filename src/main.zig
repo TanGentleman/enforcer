@@ -5,6 +5,7 @@ const enforcer = @import("enforcer");
 const Settings = @import("enforcer").hookSettings;
 
 const allocator_max_bytes: u32 = 4 * 1024 * 1024;
+var process_buf: [allocator_max_bytes]u8 = undefined;
 
 const ValidInput = struct {
     prompt: []const u8,
@@ -41,11 +42,10 @@ fn parseInput(input_string: []const u8) ValidInput {
 
 pub fn main(init: std.process.Init) !u8 {
     // This is appropriate for anything that lives as long as the process.
-    var arena_buf: [allocator_max_bytes]u8 = undefined;
-    var fixed_allocator = std.heap.FixedBufferAllocator.init(&arena_buf);
-    var arena = std.heap.ArenaAllocator.init(fixed_allocator.allocator());
-    defer arena.deinit();
-    const arena_allocator = arena.allocator();
+    var fixed_allocator = std.heap.FixedBufferAllocator.init(&process_buf);
+    var arena_state = std.heap.ArenaAllocator.init(fixed_allocator.allocator());
+    defer arena_state.deinit();
+    const arena_allocator = arena_state.allocator();
     const io = init.io;
 
     // validate config
