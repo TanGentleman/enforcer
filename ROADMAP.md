@@ -41,6 +41,9 @@ the debug prints in `on`/`off`, the fixed 4 KB arena that limits argv.
   idempotent, keeps other hooks, atomic write under a lock, tested on temp dirs.
 - `enforcer-4`: README with install and a working example, `zig build --release`
   gives ReleaseSmall (213 KB), `zig build check` (fmt + tests) used by CI.
+- `enforcer-5`: on a block, print Claude Code's JSON decision with
+  `suppressOriginalPrompt` so the token is not echoed; `test/claude-code.sh` runs a
+  real, logged-out Claude Code CLI against the binary, in CI.
 
 Checked end to end with Claude Code 2.1.319 (`claude -p` with an empty HOME, no
 login): after `enforcer on`, a `ghp_` prompt is blocked by the hook before the login

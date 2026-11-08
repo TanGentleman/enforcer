@@ -20,7 +20,7 @@ zig build --release --prefix ~/.local && ~/.local/bin/enforcer on
 ## Example
 
 ```console
-$ echo '{"prompt":"deploy with ghp_abc123"}' | enforcer hook; echo "exit $?"
+$ echo '{"prompt":"deploy with ghp_abc123"}' | enforcer hook >/dev/null; echo "exit $?"
 enforcer: prompt contains what looks like a GitHub token (ghp_...)
 exit 2
 $ echo '{"prompt":"deploy to staging"}' | enforcer hook; echo "exit $?"
@@ -31,7 +31,7 @@ In Claude Code the first prompt is not sent and you see:
 
 ```text
 UserPromptSubmit operation blocked by hook:
-[/home/you/.local/bin/enforcer hook]: enforcer: prompt contains what looks like a GitHub token (ghp_...)
+enforcer: prompt contains what looks like a GitHub token (ghp_...)
 ```
 
 ## Commands
@@ -40,10 +40,12 @@ UserPromptSubmit operation blocked by hook:
 | --- | --- | --- |
 | `enforcer on` | add the hook | 0 done or already there, 1 error |
 | `enforcer off` | remove it | 0 done or nothing to remove, 1 error |
-| `enforcer hook` | read the hook JSON on stdin | 0 allow, 2 block (reason on stderr), 1 internal error (Claude Code lets the prompt through) |
+| `enforcer hook` | read the hook JSON on stdin | 0 allow, 2 block, 1 internal error (Claude Code lets the prompt through) |
 
 `hook` reads at most 256 KiB and checks only the `prompt` field; input that is
-not a JSON object with a string `prompt` is checked as raw text.
+not a JSON object with a string `prompt` is checked as raw text. On a block it
+prints the reason on stderr and a JSON decision with `suppressOriginalPrompt` on
+stdout, so Claude Code does not echo the prompt (and the token) back.
 
 ## How `on` edits settings.json
 
@@ -55,8 +57,7 @@ Symlinked or invalid settings files are refused and left untouched. The config
 directory must already exist; `settings.json` is created if missing.
 
 The rule is one case-sensitive substring check in `src/policy.zig`. It is a
-speed bump against pasting a token, not a secret scanner, and the blocked text
-can still land in Claude Code's local transcript.
+speed bump against pasting a token, not a secret scanner.
 
 ## Develop
 
@@ -64,4 +65,5 @@ can still land in Claude Code's local transcript.
 zig build test     # unit tests and CLI tests against the built binary
 zig build check    # zig fmt --check plus the tests (what CI runs)
 zig build --release   # ReleaseSmall, about 200 KB
+test/claude-code.sh   # end to end with a real `claude` on PATH, no login needed
 ```
