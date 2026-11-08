@@ -79,6 +79,8 @@ pub fn main(init: std.process.Init) u8 {
 }
 
 test {
+    _ = @import("claude.zig");
     _ = hook;
+    _ = @import("settings.zig");
     _ = @import("policy.zig");
 }
