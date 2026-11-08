@@ -3,8 +3,9 @@
 //! (allow), 2 (block) or 1 (internal error).
 
 const std = @import("std");
-const enforcer = @import("enforcer");
+const claude = @import("claude.zig");
 const hook = @import("hook.zig");
+const settings = @import("settings.zig");
 
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
@@ -25,28 +26,61 @@ fn printStderr(io: Io, gpa: Allocator, comptime fmt: []const u8, args: anytype) 
     Io.File.stderr().writeStreamingAll(io, msg) catch {};
 }
 
-fn toggle(init: std.process.Init, enable: bool) u8 {
+fn outcomeMessage(action: settings.Action, outcome: settings.Outcome) []const u8 {
+    return switch (action) {
+        .install => switch (outcome) {
+            .changed => "installed",
+            .unchanged => "already installed",
+        },
+        .uninstall => switch (outcome) {
+            .changed => "removed",
+            .unchanged => "nothing to remove",
+        },
+    };
+}
+
+/// Claude Code reads `$CLAUDE_CONFIG_DIR/settings.json`, default
+/// `~/.claude/settings.json`. The config directory must already exist.
+fn toggle(init: std.process.Init, action: settings.Action) u8 {
     const io = init.io;
     const gpa = init.gpa;
+    const env = init.environ_map;
 
-    const home_dir = init.environ_map.get("HOME") orelse {
-        printStderr(io, gpa, "enforcer: HOME is not set\n", .{});
-        return 1;
+    const config_dir_path: []const u8 = blk: {
+        if (env.get("CLAUDE_CONFIG_DIR")) |path| if (path.len > 0) break :blk gpa.dupe(u8, path) catch return 1;
+        const home = env.get("ENFORCER_HOME") orelse env.get("HOME") orelse {
+            printStderr(io, gpa, "enforcer: HOME is not set\n", .{});
+            return 1;
+        };
+        break :blk std.fs.path.join(gpa, &.{ home, ".claude" }) catch return 1;
     };
-    const config_path = std.fs.path.join(gpa, &.{ home_dir, ".claude", "settings.json" }) catch return 1;
-    defer gpa.free(config_path);
+    defer gpa.free(config_dir_path);
 
-    Io.Dir.cwd().access(io, config_path, .{}) catch |err| {
-        printStderr(io, gpa, "enforcer: {s}: {s}\n", .{ config_path, @errorName(err) });
+    var config_dir = Io.Dir.cwd().openDir(io, config_dir_path, .{}) catch |err| {
+        printStderr(io, gpa, "enforcer: no Claude Code config at {s} ({s})\n", .{ config_dir_path, @errorName(err) });
         return 1;
     };
-    enforcer.setHooks(.{
-        .UserPromptSubmit = enable,
-        .config_path = config_path,
-    }) catch |err| {
-        printStderr(io, gpa, "enforcer: {s}\n", .{@errorName(err)});
+    defer config_dir.close(io);
+
+    var owned_self: ?[:0]u8 = null;
+    defer if (owned_self) |path| gpa.free(path);
+    const self_path: []const u8 = env.get("ENFORCER_SELF") orelse blk: {
+        owned_self = std.process.executablePathAlloc(io, gpa) catch |err| {
+            printStderr(io, gpa, "enforcer: cannot find own executable: {s}\n", .{@errorName(err)});
+            return 1;
+        };
+        break :blk owned_self.?;
+    };
+    const command = claude.renderCommand(gpa, self_path) catch return 1;
+    defer gpa.free(command);
+
+    const outcome = settings.apply(io, gpa, config_dir, "settings.json", action, command) catch |err| {
+        printStderr(io, gpa, "enforcer: {s}/settings.json: {s}\n", .{ config_dir_path, @errorName(err) });
         return 1;
     };
+    const msg = std.fmt.allocPrint(gpa, "{s}/settings.json: {s}\n", .{ config_dir_path, outcomeMessage(action, outcome) }) catch return 0;
+    defer gpa.free(msg);
+    Io.File.stdout().writeStreamingAll(io, msg) catch {};
     return 0;
 }
 
@@ -71,16 +105,16 @@ pub fn main(init: std.process.Init) u8 {
         return 0;
     }
     if (std.mem.eql(u8, verb, "hook")) return hook.run(io, gpa);
-    if (std.mem.eql(u8, verb, "on")) return toggle(init, true);
-    if (std.mem.eql(u8, verb, "off")) return toggle(init, false);
+    if (std.mem.eql(u8, verb, "on")) return toggle(init, .install);
+    if (std.mem.eql(u8, verb, "off")) return toggle(init, .uninstall);
 
     Io.File.stderr().writeStreamingAll(io, usage_text) catch {};
     return 1;
 }
 
 test {
-    _ = @import("claude.zig");
+    _ = claude;
     _ = hook;
-    _ = @import("settings.zig");
+    _ = settings;
     _ = @import("policy.zig");
 }

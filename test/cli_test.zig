@@ -156,3 +156,137 @@ test "on with HOME unset exits 1 without panicking" {
     try expectCode(result, 1);
     try expectContains(result.stderr, "HOME is not set");
 }
+
+/// `HOME` for a child run: the temp dir, relative to the test's cwd.
+fn tmpHome(tmp: std.testing.TmpDir) ![]u8 {
+    return std.fs.path.join(gpa, &.{ ".zig-cache", "tmp", &tmp.sub_path });
+}
+
+test "on and off edit settings.json and keep other settings" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const home = try tmpHome(tmp);
+    defer gpa.free(home);
+    try tmp.dir.createDirPath(io, ".claude");
+    try writeFile(tmp.dir, ".claude/settings.json", "{\"model\":\"opus\"}");
+
+    var env = std.process.Environ.Map.init(gpa);
+    defer env.deinit();
+    try env.put("HOME", home);
+    try env.put("ENFORCER_SELF", "/opt/bin/enforcer");
+
+    var on = try run(tmp.dir, &.{ exe_path, "on" }, "", &env);
+    defer on.deinit();
+    try expectCode(on, 0);
+    try expectContains(on.stdout, "installed");
+    const installed = try readFile(tmp.dir, ".claude/settings.json");
+    defer gpa.free(installed);
+    try expectContains(installed, "\"model\": \"opus\"");
+    try expectContains(installed, "\"command\": \"/opt/bin/enforcer hook\"");
+
+    var again = try run(tmp.dir, &.{ exe_path, "on" }, "", &env);
+    defer again.deinit();
+    try expectCode(again, 0);
+    try expectContains(again.stdout, "already installed");
+
+    var off = try run(tmp.dir, &.{ exe_path, "off" }, "", &env);
+    defer off.deinit();
+    try expectCode(off, 0);
+    try expectContains(off.stdout, "removed");
+    const removed = try readFile(tmp.dir, ".claude/settings.json");
+    defer gpa.free(removed);
+    try std.testing.expectEqualStrings("{\n  \"model\": \"opus\"\n}\n", removed);
+}
+
+test "on without a Claude Code config dir exits 1 and creates nothing" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const home = try tmpHome(tmp);
+    defer gpa.free(home);
+    var env = std.process.Environ.Map.init(gpa);
+    defer env.deinit();
+    try env.put("HOME", home);
+
+    var result = try run(tmp.dir, &.{ exe_path, "on" }, "", &env);
+    defer result.deinit();
+    try expectCode(result, 1);
+    try expectContains(result.stderr, "no Claude Code config");
+    try std.testing.expectError(error.FileNotFound, tmp.dir.statFile(io, ".claude", .{}));
+}
+
+test "CLAUDE_CONFIG_DIR wins over HOME" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const home = try tmpHome(tmp);
+    defer gpa.free(home);
+    const config = try std.fs.path.join(gpa, &.{ home, "custom" });
+    defer gpa.free(config);
+    try tmp.dir.createDirPath(io, "custom");
+
+    var env = std.process.Environ.Map.init(gpa);
+    defer env.deinit();
+    try env.put("HOME", home);
+    try env.put("CLAUDE_CONFIG_DIR", config);
+
+    var result = try run(tmp.dir, &.{ exe_path, "on" }, "", &env);
+    defer result.deinit();
+    try expectCode(result, 0);
+    const written = try readFile(tmp.dir, "custom/settings.json");
+    defer gpa.free(written);
+    try expectContains(written, "UserPromptSubmit");
+}
+
+test "invalid settings.json exits 1 and is left alone" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const home = try tmpHome(tmp);
+    defer gpa.free(home);
+    try tmp.dir.createDirPath(io, ".claude");
+    try writeFile(tmp.dir, ".claude/settings.json", "{ oops");
+
+    var env = std.process.Environ.Map.init(gpa);
+    defer env.deinit();
+    try env.put("HOME", home);
+
+    var result = try run(tmp.dir, &.{ exe_path, "on" }, "", &env);
+    defer result.deinit();
+    try expectCode(result, 1);
+    const got = try readFile(tmp.dir, ".claude/settings.json");
+    defer gpa.free(got);
+    try std.testing.expectEqualStrings("{ oops", got);
+}
+
+test "the command that on writes blocks a token when run by a shell" {
+    if (@import("builtin").os.tag == .windows) return error.SkipZigTest;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const home = try tmpHome(tmp);
+    defer gpa.free(home);
+    try tmp.dir.createDirPath(io, ".claude");
+
+    var env = std.process.Environ.Map.init(gpa);
+    defer env.deinit();
+    try env.put("HOME", home);
+
+    var on = try run(tmp.dir, &.{ exe_path, "on" }, "", &env);
+    defer on.deinit();
+    try expectCode(on, 0);
+
+    const written = try readFile(tmp.dir, ".claude/settings.json");
+    defer gpa.free(written);
+    const Hook = struct { command: []const u8 };
+    const Group = struct { hooks: []const Hook };
+    const Settings = struct { hooks: struct { UserPromptSubmit: []const Group } };
+    const parsed = try std.json.parseFromSlice(Settings, gpa, written, .{ .ignore_unknown_fields = true });
+    defer parsed.deinit();
+    const command = parsed.value.hooks.UserPromptSubmit[0].hooks[0].command;
+
+    var blocked = try run(tmp.dir, &.{ "/bin/sh", "-c", command }, "{\"prompt\":\"here is ghp_123\"}", null);
+    defer blocked.deinit();
+    try expectCode(blocked, 2);
+    try expectContains(blocked.stderr, "GitHub");
+
+    var allowed = try run(tmp.dir, &.{ "/bin/sh", "-c", command }, "{\"prompt\":\"hello\"}", null);
+    defer allowed.deinit();
+    try expectCode(allowed, 0);
+}
