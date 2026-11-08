@@ -41,6 +41,7 @@ the debug prints in `on`/`off`, the fixed 4 KB arena that limits argv.
   setup-zig v2.2.1, setup-node v7.1.0 with Node 24.22.2), runners pinned to
   ubuntu-24.04 and macos-15; table test for hook payloads; settings tests for
   oversized files, directories and the lock; README rewritten.
+- `enforcer-7`: README cut to 22 words; details moved to IMPLEMENTATION.md.
 
 Checked end to end with Claude Code 2.1.319 (`claude -p` with an empty HOME, no
 login): after `enforcer on`, a `ghp_` prompt is blocked by the hook before the login
@@ -59,7 +60,7 @@ zig build test --summary all
 ```
 
 For a stacked branch, use the previous branch as the base: `origin/enforcer-1..origin/enforcer-2`.
-For the whole stack, `"$base"..origin/enforcer-6`, then run `zig build check` and
+For the whole stack, `"$base"..origin/enforcer-7`, then run `zig build check` and
 `test/claude-code.sh zig-out/bin/enforcer` (after `zig build --release`).
 
 ## Needs Tan
