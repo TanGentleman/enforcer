@@ -106,4 +106,4 @@ on ubuntu-24.04 and macos-15, plus the Claude Code script on Linux.
   script needs npm to install the CLI, but no account or API key.
 - Only Claude Code is supported. The Pi version lives in
   [tan-toolchains](https://github.com/TanGentleman/tan-toolchains) `enforcer/`.
-- Checked on Linux x86_64. macOS runs only in CI; Windows is untested.
+- Checked on Linux x86_64 only. macOS is in the CI matrix but has not run on these changes; Windows is untested.
