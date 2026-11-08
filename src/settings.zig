@@ -166,3 +166,42 @@ test "a symlinked settings.json is refused" {
     defer gpa.free(got);
     try testing.expectEqualStrings("{}", got);
 }
+
+test "an oversized settings.json is refused and left alone" {
+    const io = testing.io;
+    const gpa = testing.allocator;
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const big = try gpa.alloc(u8, max_file_bytes + 1);
+    defer gpa.free(big);
+    @memset(big, ' ');
+    big[0] = '{';
+    big[big.len - 1] = '}';
+    try tmp.dir.writeFile(io, .{ .sub_path = "settings.json", .data = big });
+    try testing.expectError(error.SettingsTooLarge, apply(io, gpa, tmp.dir, "settings.json", .install, "enforcer hook"));
+
+    const stat = try tmp.dir.statFile(io, "settings.json", .{});
+    try testing.expectEqual(@as(u64, max_file_bytes + 1), stat.size);
+}
+
+test "a directory named settings.json is refused" {
+    const io = testing.io;
+    const gpa = testing.allocator;
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    try tmp.dir.createDir(io, "settings.json", .default_dir);
+    try testing.expectError(error.SettingsNotRegularFile, apply(io, gpa, tmp.dir, "settings.json", .install, "enforcer hook"));
+}
+
+test "the lock file stays after on and off" {
+    const io = testing.io;
+    const gpa = testing.allocator;
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    _ = try apply(io, gpa, tmp.dir, "settings.json", .install, "enforcer hook");
+    _ = try apply(io, gpa, tmp.dir, "settings.json", .uninstall, "enforcer hook");
+    _ = try tmp.dir.statFile(io, lock_name, .{});
+}
