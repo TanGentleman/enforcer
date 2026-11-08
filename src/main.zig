@@ -49,7 +49,10 @@ pub fn main(init: std.process.Init) !u8 {
     const io = init.io;
 
     // validate config
-    const home_dir = init.environ_map.get("HOME").?;
+    const home_dir = init.environ_map.get("HOME") orelse {
+        print("error: HOME is not set\n", .{});
+        return 1;
+    };
     //std.log.info("Home: {s}", .{home_dir});
     const config_path = try std.fs.path.join(arena_allocator, &.{
         home_dir,
