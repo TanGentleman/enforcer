@@ -47,22 +47,6 @@ Checked end to end with Claude Code 2.1.319 (`claude -p` with an empty HOME, no
 login): after `enforcer on`, a `ghp_` prompt is blocked by the hook before the login
 check; a clean prompt reaches "Not logged in".
 
-## Apply a branch upstream
-
-```bash
-# in kranti-sandbox: everything after the import commit
-base=$(git log -1 --format=%H --grep='^Import enforcer upstream' origin/enforcer-1)
-git format-patch --relative=enforcer "$base"..origin/enforcer-1 -o /tmp/enforcer-1
-# in a clean upstream clone at a1a4b49
-git clone https://github.com/TanGentleman/enforcer && cd enforcer
-git am /tmp/enforcer-1/*.patch
-zig build test --summary all
-```
-
-For a stacked branch, use the previous branch as the base: `origin/enforcer-1..origin/enforcer-2`.
-For the whole stack, `"$base"..origin/enforcer-7`, then run `zig build check` and
-`test/claude-code.sh zig-out/bin/enforcer` (after `zig build --release`).
-
 ## Needs Tan
 
 - None of the CI changes has run on GitHub; the macOS job is the real check (only
