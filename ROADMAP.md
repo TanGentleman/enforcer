@@ -53,15 +53,15 @@ check; a clean prompt reaches "Not logged in".
 
 ```bash
 # in kranti-sandbox: everything after the import commit
-base=$(git log -1 --format=%H --grep='^Import enforcer upstream' enforcer-1)
-git format-patch --relative=enforcer "$base"..enforcer-1 -o /tmp/enforcer-1
+base=$(git log -1 --format=%H --grep='^Import enforcer upstream' origin/enforcer-1)
+git format-patch --relative=enforcer "$base"..origin/enforcer-1 -o /tmp/enforcer-1
 # in a clean upstream clone at a1a4b49
 git clone https://github.com/TanGentleman/enforcer && cd enforcer
 git am /tmp/enforcer-1/*.patch
 zig build test --summary all
 ```
 
-For a stacked branch, use the previous branch as the base: `enforcer-1..enforcer-2`.
+For a stacked branch, use the previous branch as the base: `origin/enforcer-1..origin/enforcer-2`.
 
 ## Needs Tan
 
