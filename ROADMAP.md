@@ -11,7 +11,7 @@ want a fast, offline speed bump against pasting secrets into an agent.
 - Upstream main builds, but `enforcer on` only prints `success: true`, there is no
   `hook` verb, nothing can block, and there are no tests. A missing settings.json or
   no args gives a stack trace; HOME unset panicked.
-- After the stack: `zig build check` (fmt plus 41 unit and CLI tests) and
+- After the stack: `zig build check` (fmt, unit and CLI tests) and
   `test/claude-code.sh` against Claude Code 2.1.319 pass on Zig 0.17.1 (official
   tarball, minisign checked); `zig build test` also passes on Zig 0.17.0.
 - Branch `atomic-settings` (2e9d1d0) is a WIP JSON mutator with `@panic`
