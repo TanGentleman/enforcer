@@ -69,14 +69,16 @@ fn expectContains(haystack: []const u8, needle: []const u8) !void {
     try std.testing.expect(std.mem.indexOf(u8, haystack, needle) != null);
 }
 
-test "hook blocks a token with exit 2 and a reason on stderr" {
+test "hook blocks a token with exit 2, a reason on stderr and JSON on stdout" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
     var result = try run(tmp.dir, &.{ exe_path, "hook" }, "{\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"use ghp_abc\"}", null);
     defer result.deinit();
     try expectCode(result, 2);
-    try std.testing.expectEqualStrings("", result.stdout);
+    try expectContains(result.stdout, "\"suppressOriginalPrompt\":true");
+    try expectContains(result.stdout, "\"decision\":\"block\"");
+    try std.testing.expect(std.mem.indexOf(u8, result.stdout, "ghp_abc") == null);
     try expectContains(result.stderr, "GitHub");
 }
 

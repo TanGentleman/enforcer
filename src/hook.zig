@@ -1,6 +1,8 @@
 //! `enforcer hook`: Claude Code's UserPromptSubmit hook. Reads the hook JSON
 //! from stdin and exits 0 (allow), 2 (block, reason on stderr) or 1 (internal
-//! error; Claude Code lets the prompt through). Rules live in `policy.zig`.
+//! error; Claude Code lets the prompt through). On a block it also prints the
+//! JSON decision on stdout so Claude Code leaves the prompt out of the block
+//! message. Rules live in `policy.zig`.
 
 const std = @import("std");
 const policy = @import("policy.zig");
@@ -36,6 +38,19 @@ fn extractPrompt(gpa: std.mem.Allocator, input: []const u8) ![]const u8 {
     return parsed.prompt;
 }
 
+/// Claude Code's JSON output for a blocked prompt. `suppressOriginalPrompt`
+/// keeps the prompt (and the token in it) out of the block message.
+pub fn blockJson(gpa: std.mem.Allocator, reason: []const u8) ![]u8 {
+    return std.json.Stringify.valueAlloc(gpa, .{
+        .decision = "block",
+        .reason = reason,
+        .hookSpecificOutput = .{
+            .hookEventName = "UserPromptSubmit",
+            .suppressOriginalPrompt = true,
+        },
+    }, .{});
+}
+
 pub fn run(io: Io, gpa: std.mem.Allocator) u8 {
     var buf: [4096]u8 = undefined;
     var reader = Io.File.Reader.initStreaming(Io.File.stdin(), io, &buf);
@@ -53,6 +68,11 @@ pub fn run(io: Io, gpa: std.mem.Allocator) u8 {
     if (verdict.code == 2) {
         const msg = std.fmt.allocPrint(gpa, "enforcer: {s}\n", .{verdict.reason}) catch return 2;
         defer gpa.free(msg);
+        if (blockJson(gpa, msg[0 .. msg.len - 1])) |json| {
+            defer gpa.free(json);
+            Io.File.stdout().writeStreamingAll(io, json) catch {};
+            Io.File.stdout().writeStreamingAll(io, "\n") catch {};
+        } else |_| {}
         Io.File.stderr().writeStreamingAll(io, msg) catch {};
     }
     return verdict.code;
@@ -84,4 +104,21 @@ test "empty and malformed input never blocks" {
     try std.testing.expectEqual(@as(u8, 0), decide(std.testing.allocator, "").code);
     try std.testing.expectEqual(@as(u8, 0), decide(std.testing.allocator, "{}").code);
     try std.testing.expectEqual(@as(u8, 0), decide(std.testing.allocator, "\xff\x00garbage").code);
+}
+
+test "block JSON suppresses the original prompt" {
+    const gpa = std.testing.allocator;
+    const json = try blockJson(gpa, "enforcer: \"quoted\" reason");
+    defer gpa.free(json);
+    const Out = struct {
+        decision: []const u8,
+        reason: []const u8,
+        hookSpecificOutput: struct { hookEventName: []const u8, suppressOriginalPrompt: bool },
+    };
+    const parsed = try std.json.parseFromSlice(Out, gpa, json, .{});
+    defer parsed.deinit();
+    try std.testing.expectEqualStrings("block", parsed.value.decision);
+    try std.testing.expectEqualStrings("enforcer: \"quoted\" reason", parsed.value.reason);
+    try std.testing.expectEqualStrings("UserPromptSubmit", parsed.value.hookSpecificOutput.hookEventName);
+    try std.testing.expect(parsed.value.hookSpecificOutput.suppressOriginalPrompt);
 }
