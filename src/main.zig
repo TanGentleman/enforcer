@@ -1,119 +1,84 @@
+//! enforcer: a small prompt gate for Claude Code. `on`/`off` manage the
+//! UserPromptSubmit hook; `hook` reads the hook JSON from stdin and exits 0
+//! (allow), 2 (block) or 1 (internal error).
+
 const std = @import("std");
-const Io = std.Io;
-const print = std.debug.print;
 const enforcer = @import("enforcer");
-const Settings = @import("enforcer").hookSettings;
+const hook = @import("hook.zig");
 
-const max_input_bytes: u32 = 4000;
+const Io = std.Io;
+const Allocator = std.mem.Allocator;
 
-const ValidInput = struct {
-    prompt: []const u8,
-};
+const usage_text =
+    \\Usage: enforcer <command>
+    \\
+    \\  on       register the Claude Code prompt hook
+    \\  off      unregister it
+    \\  hook     run as the hook: read stdin, exit 2 to block
+    \\  --help   show this help
+    \\
+;
 
-// handler for `enforcer on`
-fn install(config_path: []const u8) bool {
-    enforcer.setHooks(.{
-        .UserPromptSubmit = true,
-        .config_path = config_path,
-    }) catch |err| {
-        print("error: {s}\n", .{@errorName(err)});
-        return false;
-    };
-    return true;
+fn printStderr(io: Io, gpa: Allocator, comptime fmt: []const u8, args: anytype) void {
+    const msg = std.fmt.allocPrint(gpa, fmt, args) catch return;
+    defer gpa.free(msg);
+    Io.File.stderr().writeStreamingAll(io, msg) catch {};
 }
 
-// `handler for `enforcer off`
-fn uninstall(config_path: []const u8) bool {
-    enforcer.setHooks(.{
-        .UserPromptSubmit = false,
-        .config_path = config_path,
-    }) catch |err| {
-        print("error: {s}\n", .{@errorName(err)});
-        return false;
-    };
-    return true;
-}
-
-fn parseInput(input_string: []const u8) ValidInput {
-    print("input length in bytes: {d}\n", .{input_string.len});
-    return .{ .prompt = "..." };
-}
-
-pub fn main(init: std.process.Init) !u8 {
-    // This is appropriate for anything that lives as long as the process.
-    var arena_buf: [max_input_bytes]u8 = undefined;
-    var fixed_allocator = std.heap.FixedBufferAllocator.init(&arena_buf);
-    var arena = std.heap.ArenaAllocator.init(fixed_allocator.allocator());
-    defer arena.deinit();
-    const arena_allocator = arena.allocator();
+fn toggle(init: std.process.Init, enable: bool) u8 {
     const io = init.io;
+    const gpa = init.gpa;
 
-    // validate config
     const home_dir = init.environ_map.get("HOME") orelse {
-        print("error: HOME is not set\n", .{});
+        printStderr(io, gpa, "enforcer: HOME is not set\n", .{});
         return 1;
     };
-    //std.log.info("Home: {s}", .{home_dir});
-    const config_path = try std.fs.path.join(arena_allocator, &.{
-        home_dir,
-        ".claude",
-        "settings.json",
-    });
-    const cwd = Io.Dir.cwd();
-    cwd.access(io, config_path, .{}) catch |err| switch (err) {
-        error.FileNotFound => return error.ConfigMissing,
-        else => {
-            print("error: {s}\n", .{@errorName(err)});
-            return err;
-        },
+    const config_path = std.fs.path.join(gpa, &.{ home_dir, ".claude", "settings.json" }) catch return 1;
+    defer gpa.free(config_path);
+
+    Io.Dir.cwd().access(io, config_path, .{}) catch |err| {
+        printStderr(io, gpa, "enforcer: {s}: {s}\n", .{ config_path, @errorName(err) });
+        return 1;
     };
-    std.log.info("config: {s}", .{config_path});
-
-    // Accessing command line arguments:
-    const args = init.minimal.args.toSlice(arena_allocator) catch |err| {
-        switch (err) {
-            error.OutOfMemory => {
-                print("input too big\n", .{});
-                return 1;
-            },
-            else => {
-                print("error: {s}\n", .{@errorName(err)});
-                return err;
-            },
-        }
+    enforcer.setHooks(.{
+        .UserPromptSubmit = enable,
+        .config_path = config_path,
+    }) catch |err| {
+        printStderr(io, gpa, "enforcer: {s}\n", .{@errorName(err)});
+        return 1;
     };
+    return 0;
+}
 
-    var expecting_input = false;
-    var count: u32 = 0;
-    for (args) |arg| {
-        // std.log.info("arg: {s}", .{arg});
-        if (count == 0) {
-            count += 1;
-            continue;
-        }
-        if (std.mem.eql(u8, "on", arg)) {
-            const success = install(config_path);
-            print("success: {}\n", .{success});
-            return 0;
-        }
-        if (std.mem.eql(u8, "off", arg)) {
-            const success = uninstall(config_path);
-            print("success: {}\n", .{success});
-            return 0;
-        }
-        if (std.mem.eql(u8, "--input", arg)) {
-            expecting_input = true;
-            continue;
-        }
-        if (!expecting_input) {
-            print("ignoring unknown flag and aborting\n", .{});
-            return 1;
-        }
+pub fn main(init: std.process.Init) u8 {
+    const io = init.io;
+    const gpa = init.gpa;
 
-        // handle input
-        const input = parseInput(arg);
-        _ = input;
+    const args = init.minimal.args.toSlice(gpa) catch |err| {
+        printStderr(io, gpa, "enforcer: cannot read arguments: {s}\n", .{@errorName(err)});
+        return 1;
+    };
+    defer gpa.free(args);
+
+    if (args.len < 2) {
+        Io.File.stderr().writeStreamingAll(io, usage_text) catch {};
+        return 1;
+    }
+
+    const verb = args[1];
+    if (std.mem.eql(u8, verb, "--help") or std.mem.eql(u8, verb, "-h")) {
+        Io.File.stdout().writeStreamingAll(io, usage_text) catch {};
         return 0;
     }
+    if (std.mem.eql(u8, verb, "hook")) return hook.run(io, gpa);
+    if (std.mem.eql(u8, verb, "on")) return toggle(init, true);
+    if (std.mem.eql(u8, verb, "off")) return toggle(init, false);
+
+    Io.File.stderr().writeStreamingAll(io, usage_text) catch {};
     return 1;
+}
+
+test {
+    _ = hook;
+    _ = @import("policy.zig");
 }
