@@ -122,3 +122,29 @@ test "block JSON suppresses the original prompt" {
     try std.testing.expectEqualStrings("UserPromptSubmit", parsed.value.hookSpecificOutput.hookEventName);
     try std.testing.expect(parsed.value.hookSpecificOutput.suppressOriginalPrompt);
 }
+
+test "decide on Claude Code payloads" {
+    const cases = [_]struct { input: []const u8, code: u8 }{
+        .{ .input = "{\"prompt\":\"ghp_abc\"}", .code = 2 },
+        .{ .input = "{\"prompt\":\"token: ghp_\"}", .code = 2 },
+        .{ .input = "{\"prompt\":\"line one\\nghp_abc on line two\"}", .code = 2 },
+        // JSON escapes are decoded before the check.
+        .{ .input = "{\"prompt\":\"ghp\\u005fabc\"}", .code = 2 },
+        .{ .input = "{\"prompt\":\"gh p_abc\"}", .code = 0 },
+        .{ .input = "{\"prompt\":\"GHP_ABC\"}", .code = 0 },
+        .{ .input = "{\"prompt\":\"github_pat_abc\"}", .code = 0 },
+        // A non-string prompt is not the hook shape, so the raw bytes are scanned.
+        .{ .input = "{\"prompt\":5,\"note\":\"ghp_abc\"}", .code = 2 },
+        .{ .input = "{\"prompt\":5}", .code = 0 },
+        .{ .input = "[\"ghp_abc\"]", .code = 2 },
+        // Only `prompt` counts in a well-formed payload.
+        .{ .input = "{\"prompt\":\"hi\",\"transcript_path\":\"/x/ghp_y.jsonl\"}", .code = 0 },
+    };
+    for (cases) |case| {
+        const exit = decide(std.testing.allocator, case.input);
+        std.testing.expectEqual(case.code, exit.code) catch |err| {
+            std.debug.print("input: {s}\n", .{case.input});
+            return err;
+        };
+    }
+}
