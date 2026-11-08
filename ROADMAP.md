@@ -39,8 +39,12 @@ the debug prints in `on`/`off`, the fixed 4 KB arena that limits argv.
   unit and CLI tests.
 - `enforcer-3`: `on`/`off` edit the `UserPromptSubmit` hook list in settings.json:
   idempotent, keeps other hooks, atomic write under a lock, tested on temp dirs.
-- `enforcer-4`: README with install and a working example, `--help`, ReleaseSmall
-  default, `zig build check`.
+- `enforcer-4`: README with install and a working example, `zig build --release`
+  gives ReleaseSmall (213 KB), `zig build check` (fmt + tests) used by CI.
+
+Checked end to end with Claude Code 2.1.319 (`claude -p` with an empty HOME, no
+login): after `enforcer on`, a `ghp_` prompt is blocked by the hook before the login
+check; a clean prompt reaches "Not logged in".
 
 ## Apply a branch upstream
 
@@ -60,3 +64,9 @@ For a stacked branch, use the previous branch as the base: `enforcer-1..enforcer
 
 - Zig floor 0.17.0 (current 0.17.1). Fine if nobody builds on 0.16.
 - Delete or rebase `atomic-settings` once `-3` lands; it is superseded.
+- The rule is only case-sensitive `ghp_`. `github_pat_`, `gho_` and other secrets
+  pass. Widening it is a product call, kept out of this stack.
+- `hook` fails open (exit 1 lets the prompt through) on read errors or >256 KiB input.
+- `on` stores the absolute binary path; moving the binary needs `enforcer on` again.
+- `.enforcer.lock` stays in the Claude config dir after `on`/`off`.
+- CI runs on ubuntu and macos; only Linux was run here. Windows is untested.
