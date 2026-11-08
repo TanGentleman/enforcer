@@ -2,7 +2,9 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
+    const optimize = b.standardOptimizeOption(.{
+        .preferred_optimize_mode = .ReleaseSmall,
+    });
 
     const exe = b.addExecutable(.{
         .name = "enforcer",
@@ -38,4 +40,9 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit and CLI tests");
     test_step.dependOn(&b.addRunArtifact(exe_tests).step);
     test_step.dependOn(&run_cli_tests.step);
+
+    const check = b.step("check", "Run zig fmt --check and the tests");
+    const fmt = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("build.zig.zon"), b.path("src"), b.path("test") }, .check = true });
+    check.dependOn(&fmt.step);
+    check.dependOn(test_step);
 }
